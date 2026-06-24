@@ -1,6 +1,7 @@
 import "./globals.css";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { TeammateBubble } from "@/components/TeammateBubble";
 
 export const metadata = {
   title: "VoiceDev Orchestrator",
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
           <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+          <TeammateBubble />
         </div>
       </body>
     </html>

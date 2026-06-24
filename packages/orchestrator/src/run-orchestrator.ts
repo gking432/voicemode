@@ -18,6 +18,8 @@ import { buildAndStoreFinalBrief } from "./services/decision-merge-service.js";
 import { runChecks, type CheckOutcome } from "./services/verification-service.js";
 import { deployPreview } from "./services/deployment-service.js";
 import { buildStatusSummary } from "./services/status-summary-service.js";
+import { createReviewSessionForRun } from "./services/review-session-service.js";
+import { recordUsage } from "./services/usage-ledger-service.js";
 
 const DENIED_COMMANDS = ["git push --force", "vercel --prod", "rm -rf", "sudo"];
 
@@ -110,6 +112,9 @@ export async function runPipeline(runId: string, cfg: OrchestratorConfig = loadC
 
   try {
     const projectPath = resolveProjectPath(cfg.workspaceRoot, project.localPath);
+
+    // Usage accounting (spec §28). Never blocks the pipeline.
+    await recordUsage({ userId: run.userId, runId, kind: "run" });
 
     // 1. Structured notes ----------------------------------------------------
     await setStatus(runId, "building_notes", "Turning your voice note into a brief…");
@@ -309,6 +314,13 @@ export async function runPipeline(runId: string, cfg: OrchestratorConfig = loadC
         previewUrl,
       }),
     );
+    // Build the teammate's "got a minute?" review (spec §25–§26) before
+    // flipping to awaiting review, so the bubble has something to show the
+    // moment the status lands. A failure here must not fail the run.
+    await createReviewSessionForRun(runId).catch((e) =>
+      recordLog(runId, "warn", "system", `Review session not built: ${(e as Error).message}`),
+    );
+
     await setStatus(runId, "awaiting_user_review", "Ready for your review.");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

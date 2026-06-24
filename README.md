@@ -135,6 +135,37 @@ See [`.env.example`](./.env.example) for the full list. The essentials:
 
 ---
 
+## The AI teammate (Phase 2)
+
+Beyond the coding pipeline, the product behaves like an engineer on your team: it
+works in the background, then **comes back to you** when there's something to look at.
+
+- **Teammate bubble** — a small, persistent bottom-right presence (mounted globally in
+  the layout) that polls for finished work and pops up *"Got a minute to review?"* It
+  stays out of your way while you're already on a review screen.
+- **Review session** — when a run reaches *awaiting review*, the orchestrator builds a
+  narration plan: a headline, an opening line, a short summary, the **decisions/assumptions
+  it made**, and 2–4 walkthrough steps. Built deterministically from the final brief +
+  Claude review + changed files (see `review-narration-service.ts`).
+- **Guided walkthrough** (`/reviews/[id]`) — the teammate *talks you through* the change
+  using browser text-to-speech, steps through each point, and lands a **simulated cursor**
+  on the preview (`PreviewPointer`). The code diff is one click away (`CodeDiffPanel`).
+- **Feedback loop** — *Looks good* approves, *Make this change* spawns a **linked
+  follow-up run** that carries the prior context forward, and *Dismiss* closes the session.
+- **Usage + plans + model router** — append-only `UsageLedger`, static `PLAN_DEFINITIONS`
+  (free / pro / team), and a `model-router` that resolves a requested model against the
+  user's plan and returns an honest **fallback notice** when a model isn't available.
+
+> **MVP scope note:** real cross-origin browser control is intentionally *not* built yet.
+> The preview is an iframe we don't own, so the walkthrough uses a clear simulated cursor +
+> spoken narration + a useful diff summary — enough to make the review feel guided without
+> overbuilding the control layer. Narration uses the Web Speech API (no extra infra).
+
+New routes: `/api/review-sessions`, `/api/review-sessions/[id]` (+ `/feedback`),
+`/api/usage`, `/api/model-router/resolve`.
+
+---
+
 ## Workflow modes (§10)
 
 ```

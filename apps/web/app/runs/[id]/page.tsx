@@ -13,6 +13,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
       project: true,
       logs: { orderBy: { createdAt: "asc" }, take: 300 },
       checks: { orderBy: { startedAt: "asc" } },
+      reviewSession: { select: { id: true, status: true } },
     },
   });
   if (!run) notFound();
@@ -41,6 +42,17 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
       <Link href={`/projects/${run.projectId}`} className="btn">
         ← {run.project.name}
       </Link>
+      {run.reviewSession && run.reviewSession.status !== "dismissed" ? (
+        <Link
+          href={`/reviews/${run.reviewSession.id}`}
+          className="flex items-center justify-between rounded-xl border border-cockpit-accent/40 bg-cockpit-accent/10 px-4 py-3"
+        >
+          <span className="text-sm text-slate-100">
+            🤖 Your teammate is ready to walk you through this — got a minute?
+          </span>
+          <span className="text-sm font-medium text-cockpit-accent">Review with me →</span>
+        </Link>
+      ) : null}
       <RunLiveView run={view} />
     </div>
   );
