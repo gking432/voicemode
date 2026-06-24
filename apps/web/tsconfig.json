@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "jsx": "preserve",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "incremental": true,
+    "allowJs": true,
+    "types": ["node", "react", "react-dom"],
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./*"],
+      "@vco/shared": ["../../packages/shared/src/index.ts"],
+      "@vco/db": ["../../packages/db/src/index.ts"],
+      "@vco/project-adapters": ["../../packages/project-adapters/src/index.ts"],
+      "@vco/agents": ["../../packages/agents/src/index.ts"],
+      "@vco/orchestrator": ["../../packages/orchestrator/src/index.ts"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}

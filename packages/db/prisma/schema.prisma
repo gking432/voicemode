@@ -1,0 +1,273 @@
+// VoiceDev Orchestrator data model (spec §12).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String?  @unique
+  name          String?
+  activePlanKey String   @default("free") // SubscriptionPlan.key (spec §28)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  projects       Project[]
+  sessions       VoiceSession[]
+  runs           Run[]
+  reviewSessions ReviewSession[]
+  usage          UsageLedger[]
+}
+
+model Project {
+  id               String   @id @default(cuid())
+  userId           String
+  name             String
+  slug             String
+  localPath        String
+  gitRemoteUrl     String?
+  vercelProjectId  String?
+  defaultBranch    String   @default("main")
+  packageManager   String? // npm, pnpm, yarn
+  devCommand       String?
+  buildCommand     String?
+  testCommand      String?
+  lintCommand      String?
+  typecheckCommand String?
+  workflowMode     String   @default("implement_and_preview_deploy")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user  User          @relation(fields: [userId], references: [id])
+  runs  Run[]
+  notes ProjectNote[]
+
+  @@index([userId])
+}
+
+model ProjectNote {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  content   String
+  source    String // manual, voice, codex, claude, run_summary
+  tags      String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model VoiceSession {
+  id        String    @id @default(cuid())
+  userId    String
+  projectId String?
+  status    String
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  user       User        @relation(fields: [userId], references: [id])
+  utterances Utterance[]
+  runs       Run[]
+
+  @@index([userId])
+}
+
+model Utterance {
+  id             String    @id @default(cuid())
+  voiceSessionId String
+  speaker        String // user, assistant
+  rawText        String
+  cleanedText    String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+
+  voiceSession VoiceSession @relation(fields: [voiceSessionId], references: [id], onDelete: Cascade)
+
+  @@index([voiceSessionId])
+}
+
+model Run {
+  id              String    @id @default(cuid())
+  userId          String
+  projectId       String
+  voiceSessionId  String?
+  parentRunId     String? // links a follow-up iteration to its predecessor (spec §25.3)
+  status          String
+  workflowMode    String
+  userTranscript  String
+  structuredNotes Json?
+  codexAnalysis   Json?
+  claudeReview    Json?
+  finalBrief      Json?
+  branchName      String?
+  commitSha       String?
+  diffSummary     String?
+  previewUrl      String?
+  productionUrl   String?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+
+  user         User          @relation(fields: [userId], references: [id])
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  voiceSession VoiceSession? @relation(fields: [voiceSessionId], references: [id])
+  parentRun    Run?          @relation("RunIterations", fields: [parentRunId], references: [id])
+  childRuns    Run[]         @relation("RunIterations")
+  logs          RunLog[]
+  checks        CheckResult[]
+  deployments   Deployment[]
+  reviewSession ReviewSession?
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([parentRunId])
+}
+
+model RunLog {
+  id        String   @id @default(cuid())
+  runId     String
+  level     String // info, warn, error, debug
+  source    String // system, realtime, codex, claude, git, vercel
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model CheckResult {
+  id        String    @id @default(cuid())
+  runId     String
+  name      String // lint, typecheck, test, build
+  command   String
+  status    String // passed, failed, skipped
+  output    String?
+  startedAt DateTime
+  endedAt   DateTime?
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — "AI teammate" product layer (spec §25–§28)
+// ---------------------------------------------------------------------------
+
+/**
+ * A review session is the teammate's "got a minute?" moment: once a run is
+ * ready for review, it is paired with a narration plan the teammate walks the
+ * user through (voice + simulated pointer + optional diff).
+ */
+model ReviewSession {
+  id          String   @id @default(cuid())
+  runId       String   @unique
+  userId      String
+  status      String   @default("pending") // pending, ready, in_progress, completed, dismissed
+  headline    String // bubble line, e.g. "Done with the signup tweak — got a minute?"
+  openingLine String // first spoken line of the walkthrough
+  summary     String // 1–2 sentence "here's what I did"
+  assumptions String[] // decisions/assumptions the teammate made
+  previewUrl  String?
+  diffStat    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id])
+  run      Run               @relation(fields: [runId], references: [id], onDelete: Cascade)
+  steps    WalkthroughStep[]
+  feedback ReviewFeedback[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+/** One narrated step in a walkthrough (summary, a change, an assumption, or a preview point). */
+model WalkthroughStep {
+  id              String  @id @default(cuid())
+  reviewSessionId String
+  order           Int
+  kind            String // summary, change, assumption, preview_point, diff
+  title           String
+  narration       String
+  filePath        String?
+  diffHunk        String?
+  pointerSelector String? // illustrative CSS selector for the simulated cursor
+  pointerLabel    String? // human label for what the cursor is pointing at
+
+  reviewSession ReviewSession @relation(fields: [reviewSessionId], references: [id], onDelete: Cascade)
+
+  @@index([reviewSessionId])
+}
+
+/** A user's response to a review: approve, ask for a revision, or dismiss. */
+model ReviewFeedback {
+  id              String   @id @default(cuid())
+  reviewSessionId String
+  decision        String // approve, revise, dismiss
+  transcript      String?
+  followUpRunId   String? // set when a revision spawns a linked follow-up run
+  createdAt       DateTime @default(now())
+
+  reviewSession ReviewSession @relation(fields: [reviewSessionId], references: [id], onDelete: Cascade)
+
+  @@index([reviewSessionId])
+}
+
+/** Append-only usage events used for plan-limit accounting (spec §28). */
+model UsageLedger {
+  id        String   @id @default(cuid())
+  userId    String
+  runId     String?
+  kind      String // run, review, model_call
+  model     String?
+  amount    Int      @default(1)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+/**
+ * Plan definitions. The canonical source is `PLAN_DEFINITIONS` in
+ * `@vco/shared`; this table is an optional persisted override/seed so plans can
+ * be edited without a deploy. Services fall back to the static defs if empty.
+ */
+model SubscriptionPlan {
+  key                String   @id // free, pro, team
+  displayName        String
+  monthlyRunLimit    Int
+  monthlyReviewLimit Int
+  allowedModels      String[]
+  isDefault          Boolean  @default(false)
+}
+
+model Deployment {
+  id        String   @id @default(cuid())
+  runId     String
+  provider  String // vercel
+  type      String // preview, production
+  url       String?
+  status    String // pending, ready, failed
+  logs      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}

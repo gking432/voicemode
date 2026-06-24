@@ -1,0 +1,30 @@
+{
+  "name": "voice-codex-claude-loop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Voice-guided multi-agent coding assistant (VoiceDev Orchestrator)",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @vco/web dev",
+    "build": "turbo run build",
+    "start": "pnpm --filter @vco/web start",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "pnpm --filter @vco/db generate",
+    "db:push": "pnpm --filter @vco/db push",
+    "db:migrate": "pnpm --filter @vco/db migrate",
+    "db:studio": "pnpm --filter @vco/db studio",
+    "worker": "pnpm --filter @vco/orchestrator worker"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "turbo": "^2.1.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
