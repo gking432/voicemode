@@ -67,6 +67,19 @@ pnpm db:generate              # generate the Prisma client
 pnpm db:push                  # create the schema in your database
 ```
 
+### Validate locally
+
+Run these in order to confirm the foundation is healthy before starting the app:
+
+```bash
+pnpm test                     # vitest — unit suites (notes, decision merge, path/command safety, state machine)
+pnpm typecheck                # turbo run typecheck across all packages
+pnpm build                    # turbo run build (Next.js production build + package checks)
+```
+
+> **Note:** `pnpm typecheck` / `pnpm build` for the `db`, `orchestrator`, and `web`
+> packages require the generated Prisma client, so run `pnpm db:generate` first.
+
 ### Run
 
 ```bash
