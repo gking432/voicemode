@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@vco/shared": ["packages/shared/src/index.ts"],
+      "@vco/shared/*": ["packages/shared/src/*"],
+      "@vco/db": ["packages/db/src/index.ts"],
+      "@vco/db/*": ["packages/db/src/*"],
+      "@vco/project-adapters": ["packages/project-adapters/src/index.ts"],
+      "@vco/project-adapters/*": ["packages/project-adapters/src/*"],
+      "@vco/agents": ["packages/agents/src/index.ts"],
+      "@vco/agents/*": ["packages/agents/src/*"],
+      "@vco/orchestrator": ["packages/orchestrator/src/index.ts"],
+      "@vco/orchestrator/*": ["packages/orchestrator/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next", ".turbo"]
+}

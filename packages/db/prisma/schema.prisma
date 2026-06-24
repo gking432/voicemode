@@ -1,0 +1,174 @@
+// VoiceDev Orchestrator data model (spec §12).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects Project[]
+  sessions VoiceSession[]
+  runs     Run[]
+}
+
+model Project {
+  id               String   @id @default(cuid())
+  userId           String
+  name             String
+  slug             String
+  localPath        String
+  gitRemoteUrl     String?
+  vercelProjectId  String?
+  defaultBranch    String   @default("main")
+  packageManager   String? // npm, pnpm, yarn
+  devCommand       String?
+  buildCommand     String?
+  testCommand      String?
+  lintCommand      String?
+  typecheckCommand String?
+  workflowMode     String   @default("implement_and_preview_deploy")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user  User          @relation(fields: [userId], references: [id])
+  runs  Run[]
+  notes ProjectNote[]
+
+  @@index([userId])
+}
+
+model ProjectNote {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  content   String
+  source    String // manual, voice, codex, claude, run_summary
+  tags      String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model VoiceSession {
+  id        String    @id @default(cuid())
+  userId    String
+  projectId String?
+  status    String
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  user       User        @relation(fields: [userId], references: [id])
+  utterances Utterance[]
+  runs       Run[]
+
+  @@index([userId])
+}
+
+model Utterance {
+  id             String    @id @default(cuid())
+  voiceSessionId String
+  speaker        String // user, assistant
+  rawText        String
+  cleanedText    String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+
+  voiceSession VoiceSession @relation(fields: [voiceSessionId], references: [id], onDelete: Cascade)
+
+  @@index([voiceSessionId])
+}
+
+model Run {
+  id              String    @id @default(cuid())
+  userId          String
+  projectId       String
+  voiceSessionId  String?
+  parentRunId     String? // links a follow-up iteration to its predecessor (spec §25.3)
+  status          String
+  workflowMode    String
+  userTranscript  String
+  structuredNotes Json?
+  codexAnalysis   Json?
+  claudeReview    Json?
+  finalBrief      Json?
+  branchName      String?
+  commitSha       String?
+  diffSummary     String?
+  previewUrl      String?
+  productionUrl   String?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+
+  user         User          @relation(fields: [userId], references: [id])
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  voiceSession VoiceSession? @relation(fields: [voiceSessionId], references: [id])
+  parentRun    Run?          @relation("RunIterations", fields: [parentRunId], references: [id])
+  childRuns    Run[]         @relation("RunIterations")
+  logs         RunLog[]
+  checks       CheckResult[]
+  deployments  Deployment[]
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([parentRunId])
+}
+
+model RunLog {
+  id        String   @id @default(cuid())
+  runId     String
+  level     String // info, warn, error, debug
+  source    String // system, realtime, codex, claude, git, vercel
+  message   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model CheckResult {
+  id        String    @id @default(cuid())
+  runId     String
+  name      String // lint, typecheck, test, build
+  command   String
+  status    String // passed, failed, skipped
+  output    String?
+  startedAt DateTime
+  endedAt   DateTime?
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model Deployment {
+  id        String   @id @default(cuid())
+  runId     String
+  provider  String // vercel
+  type      String // preview, production
+  url       String?
+  status    String // pending, ready, failed
+  logs      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  run Run @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
